@@ -1,0 +1,206 @@
+// Prisma Schema for Class 12 Commerce Platform
+// Supports both PostgreSQL (production) and SQLite (instant local development)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String?        @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?        // Hashed password for admin/local credentials fallback
+  role          String         @default("STUDENT") // STUDENT or ADMIN
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  conversations Conversation[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Subject {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  code         String        @unique
+  description  String?
+  isActive     Boolean       @default(true)
+  order        Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  samplePapers SamplePaper[]
+
+  @@index([code])
+}
+
+model SamplePaper {
+  id               String          @id @default(cuid())
+  subjectId        String
+  title            String
+  year             Int
+  month            String?         // March, July, June, etc.
+  description      String?
+  paperPdfUrl      String
+  answerPdfUrl     String?
+  fileSize         Int?            // File size in bytes
+  fileHash         String?         // SHA-256 hash
+  originalFilename String?
+  isPublished      Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  subject          Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  questions        Question[]
+  importedFiles    ImportedFile[]
+
+  @@index([subjectId])
+  @@index([year])
+  @@index([isPublished])
+}
+
+model ImportedFile {
+  id               String       @id @default(cuid())
+  originalFilename String
+  sourcePath       String
+  fileSize         Int
+  fileHash         String       @unique
+  subjectCode      String
+  detectedYear     Int
+  detectedMonth    String?
+  status           String       @default("PENDING") // PENDING, IMPORTED, DUPLICATE, FAILED, REVIEW_NEEDED
+  storageUrl       String?
+  samplePaperId    String?
+  errorMessage     String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  samplePaper      SamplePaper? @relation(fields: [samplePaperId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([subjectCode])
+}
+
+model Question {
+  id             String      @id @default(cuid())
+  samplePaperId  String
+  questionNumber String
+  subQuestion    String?
+  questionText   String
+  marks          Int?
+  order          Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  samplePaper    SamplePaper @relation(fields: [samplePaperId], references: [id], onDelete: Cascade)
+  answers        Answer[]
+
+  @@index([samplePaperId])
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  questionId  String
+  answerText  String
+  explanation String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+model Conversation {
+  id          String    @id @default(cuid())
+  userId      String?
+  title       String
+  subjectCode String?
+  paperId     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String       // USER, ASSISTANT, SYSTEM
+  content        String
+  imageUrl       String?      // Attached question photograph / screenshot
+  metadata       String?      // JSON stringified metadata
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model AppSettings {
+  id           String   @id @default(cuid())
+  settingKey   String   @unique
+  settingValue String
+  updatedAt    DateTime @updatedAt
+
+  @@index([settingKey])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+}
