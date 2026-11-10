@@ -1,9 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
 
-if (!process.env.DATABASE_URL) {
+function getDatabaseUrl(): string {
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('file:') && !process.env.DATABASE_URL.includes('dev.db')) {
+    return process.env.DATABASE_URL;
+  }
   const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
-  process.env.DATABASE_URL = `file:${dbPath}`;
+  return `file:${dbPath}`;
 }
 
 const globalForPrisma = globalThis as unknown as {
@@ -13,6 +16,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasourceUrl: getDatabaseUrl(),
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error']
   });
 

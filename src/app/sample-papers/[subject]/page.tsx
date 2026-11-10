@@ -11,6 +11,28 @@ interface SubjectPageProps {
   }>;
 }
 
+export async function generateStaticParams() {
+  try {
+    const subjects = await prisma.subject.findMany({
+      where: { isActive: true },
+      select: { code: true }
+    });
+
+    return subjects.flatMap((s) => [
+      { subject: s.code.toLowerCase() },
+      { subject: s.code.toUpperCase() }
+    ]);
+  } catch {
+    return [
+      { subject: 'bk' },
+      { subject: 'eco' },
+      { subject: 'ocm' },
+      { subject: 'sp' },
+      { subject: 'eng' }
+    ];
+  }
+}
+
 export async function generateMetadata({ params }: SubjectPageProps) {
   const { subject } = await params;
   const decoded = decodeURIComponent(subject).toUpperCase();

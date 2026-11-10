@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import fs from 'fs';
+import { findPaperFileOnDisk } from '@/lib/pdf-resolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,17 +24,11 @@ export async function GET(
       return NextResponse.json({ error: 'Sample paper not found' }, { status: 404 });
     }
 
-    let filePath: string | null = null;
-    if (paper.importedFiles && paper.importedFiles.length > 0) {
-      const imp = paper.importedFiles[0];
-      if (fs.existsSync(imp.sourcePath)) {
-        filePath = imp.sourcePath;
-      }
-    }
+    const filePath = findPaperFileOnDisk(paper);
 
     if (!filePath || !fs.existsSync(filePath)) {
       return NextResponse.json(
-        { error: 'Physical PDF file not found in local repository.' },
+        { error: 'Physical PDF file not found in repository.' },
         { status: 404 }
       );
     }
